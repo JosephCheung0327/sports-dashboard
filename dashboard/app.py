@@ -8,19 +8,12 @@ import sys
 import os
 import numpy as np
 
-
-# Get the absolute path of the current file's directory (dashboard/)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Get the parent directory (sports-dashboard/)
 parent_dir = os.path.dirname(current_dir)
-
-# Add the parent directory to sys.path so we can import 'database' and 'config'
 sys.path.append(parent_dir)
 
 from database.db_utils import get_connection
 
-# --- 2. CONFIG & CACHING ---
 def load_model():
     model_path = os.path.join(parent_dir, 'models', 'playoff_predictor.pkl')
 

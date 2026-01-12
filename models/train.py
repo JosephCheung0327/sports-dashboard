@@ -50,7 +50,6 @@ def train_model():
     # Create a clean copy of the features
     X = df[features].copy()
     
-    # --- CRITICAL FIX: CLEANING DATA ---
     # 1. Fill any NaNs with 0 (e.g. if a stat is missing)
     X.fillna(0, inplace=True)
     
@@ -72,4 +71,3 @@ def train_model():
 
 if __name__ == "__main__":
     train_model()
-    
