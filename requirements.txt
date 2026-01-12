@@ -1,0 +1,8 @@
+requests
+pandas
+psycopg2-binary
+scikit-learn
+streamlit
+plotly
+matplotlib
+numpy

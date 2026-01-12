@@ -3,6 +3,32 @@ import pandas as pd
 import psycopg2
 import pickle
 import plotly.express as px
+import joblib
+import sys
+import os
+import numpy as np
+
+
+# Get the absolute path of the current file's directory (dashboard/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Get the parent directory (sports-dashboard/)
+parent_dir = os.path.dirname(current_dir)
+
+# Add the parent directory to sys.path so we can import 'database' and 'config'
+sys.path.append(parent_dir)
+
+from database.db_utils import get_connection
+
+# --- 2. CONFIG & CACHING ---
+def load_model():
+    model_path = os.path.join(parent_dir, 'models', 'playoff_predictor.pkl')
+
+    try:
+        return joblib.load(model_path)
+
+    except FileNotFoundError:
+        return None
 
 # --- CONFIG ---
 DB_CONFIG = {
@@ -13,44 +39,56 @@ DB_CONFIG = {
 
 def load_data():
     conn = psycopg2.connect(**DB_CONFIG)
-    # Added 't.logo_url' to query
     query = """
     WITH LatestDate AS (
         SELECT max(date) as max_date 
         FROM daily_standings 
         WHERE season_id = 20252026
     )
-    SELECT 
-        t.name, 
+    SELECT
+        t.name,
         t.abbrev,
         t.conference,
         t.division,
         t.logo_url,
-        d.games_played, 
-        d.wins, 
-        d.points, 
-        d.goals_for, 
-        d.goals_against
-    FROM daily_standings d
-    JOIN teams t ON d.team_id = t.team_id
-    JOIN LatestDate ld ON d.date = ld.max_date
-    WHERE d.season_id = 20252026;
+        ds.games_played,
+        ds.wins,
+        ds.losses,
+        ds.ot_losses,
+        ds.points,
+        ds.goals_for,
+        ds.goals_against
+    FROM daily_standings ds
+    JOIN teams t ON ds.team_id = t.team_id
+    JOIN LatestDate ld ON ds.date = ld.max_date
+    WHERE ds.season_id = 20252026;
     """
     df = pd.read_sql(query, conn)
     conn.close()
     return df
 
 def predict_playoffs(df):
-    with open('playoff_model.pkl', 'rb') as f:
-        model = pickle.load(f)
-        
-    df['point_pct'] = df['points'] / (df['games_played'] * 2)
-    df['goal_diff_per_game'] = (df['goals_for'] - df['goals_against']) / df['games_played']
-    df['win_pct'] = df['wins'] / df['games_played']
-    
-    features = ['point_pct', 'goal_diff_per_game', 'win_pct']
-    probs = model.predict_proba(df[features])[:, 1]
-    df['Playoff Probability'] = probs
+    model = load_model()
+    if model is None:
+        raise FileNotFoundError("Model not found at 'models/playoff_predictor.pkl'. Place the trained model there or update load_model().")
+
+    df = df.copy()
+    # recreate training-time features
+    df['goal_diff'] = df['goals_for'] - df['goals_against']
+    df['win_pct'] = df['wins'] / df['games_played'].replace(0, np.nan)
+
+    # Ensure expected columns exist and fill/clean
+    df[['games_played', 'points', 'win_pct', 'goal_diff']] = df[['games_played', 'points', 'win_pct', 'goal_diff']].fillna(0)
+    features = ['games_played', 'points', 'win_pct', 'goal_diff']
+
+    X = df[features]
+
+    if hasattr(model, "predict_proba"):
+        probs = model.predict_proba(X)[:, 1]
+    else:
+        probs = model.predict(X).astype(float)
+
+    df['Playoff Probability'] = np.clip(probs, 0.0, 1.0)
     return df
 
 st.set_page_config(page_title="NHL Playoffs Predictor", layout="wide")
