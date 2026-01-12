@@ -111,7 +111,7 @@ try:
             
             # Color code the probability
             color = "green" if prob > 0.7 else "orange" if prob > 0.3 else "red"
-            st.markdown(f"### Playoff Chance: :{color}[{prob:.1%}]")
+            st.markdown(f"### Playoffs Chance: :{color}[{prob:.1%}]")
             
         with col3:
             st.metric("Points", team_data['points'])
@@ -147,7 +147,7 @@ try:
             "losses": "Losses",
             "ot_losses": "OT Losses",
             "Playoff Chance %": st.column_config.ProgressColumn(
-                "Playoff Chance",
+                "Playoffs Chance",
                 format="%.1f%%",
                 min_value=0,
                 max_value=100,
