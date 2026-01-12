@@ -6,9 +6,7 @@ from datetime import datetime, timedelta
 DB_CONFIG = {
     "dbname": "nhl_analytics",
     "user": "postgres",
-    "password": "nhldb0112",
-    "host": "localhost",
-    "port": "5432"
+    "password": "nhldb0112"
 }
 
 # --- SEASON DEFINITIONS ---
