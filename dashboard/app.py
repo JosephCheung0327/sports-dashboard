@@ -134,11 +134,15 @@ try:
     display_df = filtered_df.sort_values(by='Playoff Probability', ascending=False)
     
     st.dataframe(
-        display_df[['name', 'division', 'points', 'wins', 'Playoff Chance %']],
+        display_df[['name', 'conference', 'division', 'points', 'wins', 'Playoff Chance %']],
         use_container_width=True,
         hide_index=True,
         column_config={
             "name": "Team",
+            "conference": "Conference",
+            "division": "Division",
+            "points": "Points",
+            "wins": "Wins",
             "Playoff Chance %": st.column_config.ProgressColumn(
                 "Playoff Chance",
                 format="%.1f%%",
