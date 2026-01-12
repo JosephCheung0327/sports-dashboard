@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import pickle
 import plotly.express as px
 import joblib
 import sys
@@ -23,15 +22,8 @@ def load_model():
     except FileNotFoundError:
         return None
 
-# --- CONFIG ---
-DB_CONFIG = {
-    "dbname": "nhl_analytics",
-    "user": "postgres",
-    "password": "nhldb0112"
-}
-
 def load_data():
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = get_connection()
     query = """
     WITH LatestDate AS (
         SELECT max(date) as max_date 

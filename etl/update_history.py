@@ -45,8 +45,7 @@ def update_history():
         
         while current <= end_date:
             date_str = current.strftime("%Y-%m-%d")
-            
-            # --- CRITICAL: Respect Rate Limits ---
+
             time.sleep(0.2)  # Sleep 0.2s between requests to avoid 429s
             
             try:
