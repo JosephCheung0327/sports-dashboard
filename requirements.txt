@@ -6,3 +6,7 @@ streamlit
 plotly
 matplotlib
 numpy
+fastapi
+uvicorn
+joblib
+xgboost

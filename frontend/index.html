@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NHL Predictor Dashboard</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { background-color: #f8fafc; }
+        .prob-badge-high { @apply bg-green-100 text-green-800 border-green-200; }
+        .prob-badge-med { @apply bg-orange-100 text-orange-800 border-orange-200; }
+        .prob-badge-low { @apply bg-red-100 text-red-800 border-red-200; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- COMPONENTS ---
+
+        const StatCard = ({ label, value, subtext }) => (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
+                <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">{label}</span>
+                <span className="text-2xl font-bold text-slate-800 mt-1">{value}</span>
+                {subtext && <span className="text-slate-400 text-xs mt-1">{subtext}</span>}
+            </div>
+        );
+
+        const TeamSpotlight = ({ team }) => {
+            if (!team) return null;
+
+            const prob = team.playoff_prob * 100;
+            let probColor = "text-red-600";
+            let probBg = "bg-red-50";
+            if (prob > 70) { probColor = "text-green-600"; probBg = "bg-green-50"; }
+            else if (prob > 30) { probColor = "text-orange-600"; probBg = "bg-orange-50"; }
+
+            return (
+                <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 mb-8 transition-all duration-500 ease-in-out">
+                    <div className="flex flex-col md:flex-row items-center gap-8">
+                        {/* Logo Section */}
+                        <div className="flex-shrink-0 relative">
+                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-slate-50 flex items-center justify-center p-4 border border-slate-100">
+                                {team.logo_url ? (
+                                    <img src={team.logo_url} alt={team.name} className="w-full h-full object-contain" />
+                                ) : (
+                                    <i className="ph ph-hockey text-6xl text-slate-300"></i>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Info Section */}
+                        <div className="flex-grow text-center md:text-left">
+                            <div className="flex flex-col md:flex-row md:items-center gap-3 mb-2 justify-center md:justify-start">
+                                <h2 className="text-3xl font-black text-slate-900">{team.name}</h2>
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    {team.abbrev}
+                                </span>
+                            </div>
+                            <p className="text-slate-500 font-medium mb-6">
+                                {team.conference} Conference • {team.division} Division
+                            </p>
+                            
+                            {/* Key Stats Grid */}
+                            <div className="grid grid-cols-3 gap-4 max-w-md mx-auto md:mx-0">
+                                <div className={`col-span-3 md:col-span-1 rounded-lg p-3 ${probBg} border border-opacity-50 flex flex-col items-center justify-center`}>
+                                    <span className="text-xs font-bold uppercase opacity-70 mb-1">Playoffs Odds</span>
+                                    <span className={`text-2xl font-extrabold ${probColor}`}>{prob.toFixed(1)}%</span>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-3 flex flex-col items-center justify-center">
+                                    <span className="text-xs font-bold text-slate-500 uppercase mb-1">Points</span>
+                                    <span className="text-xl font-bold text-slate-800">{team.points}</span>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-3 flex flex-col items-center justify-center">
+                                    <span className="text-xs font-bold text-slate-500 uppercase mb-1">Record</span>
+                                    <span className="text-xl font-bold text-slate-800">{team.wins}-{team.losses}-{team.ot_losses}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [data, setData] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            
+            // Filters
+            const [selectedTeam, setSelectedTeam] = useState(null);
+            const [selectedDivisions, setSelectedDivisions] = useState([]);
+
+            // Fetch Data
+            useEffect(() => {
+                const fetchData = async () => {
+                    try {
+                        // Pointing to your FastAPI Backend
+                        const response = await fetch('http://localhost:8000/api/nhl/standings');
+                        if (!response.ok) throw new Error('Failed to fetch data');
+                        const jsonData = await response.json();
+                        
+                        setData(jsonData);
+                        
+                        // Extract all divisions for filter
+                        const divs = [...new Set(jsonData.map(item => item.division))].sort();
+                        setSelectedDivisions(divs); // Select all by default
+                    } catch (err) {
+                        setError(err.message);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchData();
+            }, []);
+
+            // Derived Data
+            const divisions = useMemo(() => {
+                return [...new Set(data.map(item => item.division))].sort();
+            }, [data]);
+
+            // Create a sorted list of teams for the dropdown (Alphabetical)
+            const sortedTeams = useMemo(() => {
+                return [...data].sort((a, b) => a.name.localeCompare(b.name));
+            }, [data]);
+
+            const filteredData = useMemo(() => {
+                return data
+                    .filter(team => selectedDivisions.includes(team.division))
+                    .sort((a, b) => b.playoff_prob - a.playoff_prob);
+            }, [data, selectedDivisions]);
+
+            const handleDivChange = (div) => {
+                setSelectedDivisions(prev => 
+                    prev.includes(div) ? prev.filter(d => d !== div) : [...prev, div]
+                );
+            };
+
+            if (loading) return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+            );
+
+            if (error) return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-50 text-red-600 font-bold">
+                    Error: {error}. Is the backend running?
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen pb-12">
+                    {/* Header */}
+                    <header className="bg-slate-900 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <i className="ph-fill ph-trophy text-3xl text-yellow-400"></i>
+                                    <h1 className="text-2xl font-bold tracking-tight">NHL Playoffs Predictor</h1>
+                                </div>
+                                <div className="w-full md:w-64">
+                                    <select 
+                                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                        onChange={(e) => {
+                                            const team = data.find(t => t.name === e.target.value);
+                                            setSelectedTeam(team);
+                                        }}
+                                        value={selectedTeam ? selectedTeam.name : ""}
+                                    >
+                                        <option value="">Search for a team...</option>
+                                        {sortedTeams.map(team => (
+                                            <option key={team.name} value={team.name}>{team.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        
+                        {/* Spotlight Section */}
+                        <TeamSpotlight team={selectedTeam} />
+
+                        {/* Main Content Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                            
+                            {/* Sidebar Filters */}
+                            <div className="lg:col-span-1">
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sticky top-6">
+                                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i className="ph ph-funnel"></i> Filters
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Divisions</div>
+                                        {divisions.map(div => (
+                                            <label key={div} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedDivisions.includes(div)}
+                                                    onChange={() => handleDivChange(div)}
+                                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                                                />
+                                                <span className="text-slate-700 font-medium">{div}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Data Table */}
+                            <div className="lg:col-span-3">
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                                        <h3 className="font-bold text-slate-800">League Standings</h3>
+                                        <span className="text-sm text-slate-500">{filteredData.length} Teams</span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold border-b border-slate-200">
+                                                    <th className="px-6 py-4">Team</th>
+                                                    <th className="px-6 py-4 text-center">Div</th>
+                                                    <th className="px-6 py-4 text-center">GP</th>
+                                                    <th className="px-6 py-4 text-center">Pts</th>
+                                                    <th className="px-6 py-4 text-center">W-L-OT</th>
+                                                    <th className="px-6 py-4 text-right">Playoff %</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {filteredData.map((team, idx) => {
+                                                    const prob = (team.playoff_prob * 100).toFixed(1);
+                                                    let badgeClass = "bg-slate-100 text-slate-600";
+                                                    if (prob > 70) badgeClass = "bg-green-100 text-green-700 border-green-200 border";
+                                                    else if (prob > 30) badgeClass = "bg-orange-50 text-orange-700 border-orange-200 border";
+                                                    else badgeClass = "bg-red-50 text-red-700 border-red-200 border";
+
+                                                    return (
+                                                        <tr key={team.name} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedTeam(team)}>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-slate-400 font-mono text-xs w-4">{idx + 1}</span>
+                                                                    {team.logo_url && <img src={team.logo_url} alt="" className="w-8 h-8 object-contain" />}
+                                                                    <div>
+                                                                        <div className="font-bold text-slate-800">{team.name}</div>
+                                                                        <div className="text-xs text-slate-400 md:hidden">{team.conference}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center text-sm text-slate-500">{team.division}</td>
+                                                            <td className="px-6 py-4 text-center text-sm text-slate-600 font-medium">{team.games_played}</td>
+                                                            <td className="px-6 py-4 text-center text-sm font-bold text-slate-800">{team.points}</td>
+                                                            <td className="px-6 py-4 text-center text-sm text-slate-500">{team.wins}-{team.losses}-{team.ot_losses}</td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}`}>
+                                                                    {prob}%
+                                                                </span>
+                                                                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                                                                    <div className={`h-1.5 rounded-full ${prob > 70 ? 'bg-green-500' : prob > 30 ? 'bg-orange-400' : 'bg-red-400'}`} style={{ width: `${prob}%` }}></div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
