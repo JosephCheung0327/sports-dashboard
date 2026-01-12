@@ -134,7 +134,7 @@ try:
     display_df = filtered_df.sort_values(by='Playoff Probability', ascending=False)
     
     st.dataframe(
-        display_df[['name', 'conference', 'division', 'points', 'wins', 'Playoff Chance %']],
+        display_df[['name', 'conference', 'division', 'points', 'games_played', 'wins', 'losses', 'ot_losses', 'Playoff Chance %']],
         use_container_width=True,
         hide_index=True,
         column_config={
@@ -142,7 +142,10 @@ try:
             "conference": "Conference",
             "division": "Division",
             "points": "Points",
+            "games_played": "Games",
             "wins": "Wins",
+            "losses": "Losses",
+            "ot_losses": "OT Losses",
             "Playoff Chance %": st.column_config.ProgressColumn(
                 "Playoff Chance",
                 format="%.1f%%",
