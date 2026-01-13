@@ -15,20 +15,27 @@ router = APIRouter()
 _model = None
 
 def get_model():
+    """Singleton pattern to load model only once."""
     global _model
     if _model is None:
         model_path = os.path.join(project_root, 'models', 'playoff_predictor.pkl')
         try:
             _model = joblib.load(model_path)
+            print(f"Model loaded from {model_path}")
         except FileNotFoundError:
+            print(f"Error: Model not found at {model_path}")
             return None
     return _model
 
 @router.get("/standings")
 def get_nhl_standings():
+    """
+    Fetches current standings, calculates stats (including advanced leading indicators),
+    and applies the ML model to predict playoff chances.
+    """
     conn = get_connection()
     try:
-        # Fetch new columns
+        # 1. Fetch Data (Latest available date for current season)
         query = """
         WITH LatestDate AS (
             SELECT max(date) as max_date 
@@ -65,12 +72,18 @@ def get_nhl_standings():
     if df.empty:
         return []
 
-    # 2. Feature Engineering
+    # 2. Feature Engineering (MUST MATCH models/train.py EXACTLY)
     df['goal_diff'] = df['goals_for'] - df['goals_against']
+    # Avoid division by zero
     df['win_pct'] = df.apply(lambda x: x['wins'] / x['games_played'] if x['games_played'] > 0 else 0, axis=1)
+    
+    # Interaction Term
     df['points_win_interaction'] = df['points'] * df['win_pct']
 
-    # Calculate Streak Numeric
+    # Normalize L10 Points (Max is 20 points in 10 games)
+    df['l10_pct'] = df['l10_points'] / 20.0
+
+    # Calculate Numeric Streak
     def calculate_streak(row):
         code = row.get('streak_code', 'N')
         count = row.get('streak_count', 0)
@@ -80,22 +93,32 @@ def get_nhl_standings():
     
     df['streak_numeric'] = df.apply(calculate_streak, axis=1)
 
-    # 3. Handle Nulls
-    features = ['games_played', 'points', 'win_pct', 'goal_diff', 'points_win_interaction', 'l10_points', 'streak_numeric']
+    # 3. Prepare Feature Matrix for Prediction
+    # The order of these columns MUST match the order in models/train.py
+    features = ['games_played', 'points', 'win_pct', 'goal_diff', 'points_win_interaction', 'l10_pct', 'streak_numeric']
+    
+    # Handle NaNs just in case
     df[features] = df[features].fillna(0)
 
     # 4. Predict
     model = get_model()
     if model:
-        X = df[features]
-        if hasattr(model, "predict_proba"):
-            probs = model.predict_proba(X)[:, 1]
-        else:
-            probs = model.predict(X).astype(float)
-        
-        df['playoff_prob'] = np.clip(probs, 0.0, 1.0)
+        try:
+            X = df[features]
+            if hasattr(model, "predict_proba"):
+                # predict_proba returns [prob_class_0, prob_class_1]
+                # We want prob_class_1 (Probability of making playoffs)
+                probs = model.predict_proba(X)[:, 1]
+            else:
+                probs = model.predict(X).astype(float)
+            
+            df['playoff_prob'] = np.clip(probs, 0.0, 1.0)
+        except Exception as e:
+            print(f"Prediction error: {e}")
+            df['playoff_prob'] = 0.0
     else:
-        df['playoff_prob'] = 0.0 
+        df['playoff_prob'] = 0.0 # Default if model fails
 
-    # 5. Format for Frontend
-    return df.to_dict(orient="records")
+    # 5. Format for Frontend (Return all original cols + prediction)
+    result = df.to_dict(orient="records")
+    return result
