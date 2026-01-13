@@ -29,7 +29,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- COMPONENTS ---
+        // COMPONENTS
 
         const StatCard = ({ label, value, subtext }) => (
             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
@@ -108,7 +108,7 @@
             useEffect(() => {
                 const fetchData = async () => {
                     try {
-                        // Pointing to your FastAPI Backend
+                        // Pointing to FastAPI Backend
                         const response = await fetch('http://localhost:8000/api/nhl/standings');
                         if (!response.ok) throw new Error('Failed to fetch data');
                         const jsonData = await response.json();
