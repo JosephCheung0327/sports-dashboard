@@ -6,38 +6,29 @@ import sys
 import numpy as np
 from database.db_utils import get_connection
 
-# Add project root to path to ensure imports work correctly
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
 router = APIRouter()
-
-# Global variable to cache the model
 _model = None
 
 def get_model():
-    """Singleton pattern to load model only once."""
     global _model
     if _model is None:
         model_path = os.path.join(project_root, 'models', 'playoff_predictor.pkl')
         try:
             _model = joblib.load(model_path)
-            print(f"Model loaded from {model_path}")
         except FileNotFoundError:
-            print(f"Error: Model not found at {model_path}")
             return None
     return _model
 
 @router.get("/standings")
 def get_nhl_standings():
-    """
-    Fetches current standings, calculates stats, and applies the ML model.
-    """
     conn = get_connection()
     try:
-        # 1. Fetch Data (Same query as before)
+        # Fetch new columns
         query = """
         WITH LatestDate AS (
             SELECT max(date) as max_date 
@@ -56,7 +47,10 @@ def get_nhl_standings():
             ds.ot_losses,
             ds.points,
             ds.goals_for,
-            ds.goals_against
+            ds.goals_against,
+            ds.l10_points,
+            ds.streak_code,
+            ds.streak_count
         FROM daily_standings ds
         JOIN teams t ON ds.team_id = t.team_id
         JOIN LatestDate ld ON ds.date = ld.max_date
@@ -73,11 +67,21 @@ def get_nhl_standings():
 
     # 2. Feature Engineering
     df['goal_diff'] = df['goals_for'] - df['goals_against']
-    # Avoid division by zero
     df['win_pct'] = df.apply(lambda x: x['wins'] / x['games_played'] if x['games_played'] > 0 else 0, axis=1)
+    df['points_win_interaction'] = df['points'] * df['win_pct']
+
+    # Calculate Streak Numeric
+    def calculate_streak(row):
+        code = row.get('streak_code', 'N')
+        count = row.get('streak_count', 0)
+        if code == 'W': return count
+        if code in ['L', 'OT']: return -count
+        return 0
+    
+    df['streak_numeric'] = df.apply(calculate_streak, axis=1)
 
     # 3. Handle Nulls
-    features = ['games_played', 'points', 'win_pct', 'goal_diff']
+    features = ['games_played', 'points', 'win_pct', 'goal_diff', 'points_win_interaction', 'l10_points', 'streak_numeric']
     df[features] = df[features].fillna(0)
 
     # 4. Predict
@@ -91,9 +95,7 @@ def get_nhl_standings():
         
         df['playoff_prob'] = np.clip(probs, 0.0, 1.0)
     else:
-        df['playoff_prob'] = 0.0 # Default if model fails
+        df['playoff_prob'] = 0.0 
 
     # 5. Format for Frontend
-    # Convert dataframe to a list of dicts
-    result = df.to_dict(orient="records")
-    return result
+    return df.to_dict(orient="records")

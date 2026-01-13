@@ -32,5 +32,8 @@ CREATE TABLE daily_standings (
     points INT,
     goals_for INT,
     goals_against INT,
-    UNIQUE(date, team_id) -- One record per team per day
+    l10_points INT DEFAULT 0,
+    streak_code VARCHAR(5),     -- 'W', 'L', 'OT'
+    streak_count INT DEFAULT 0,
+    UNIQUE(date, team_id)       -- One record per team per day
 );
