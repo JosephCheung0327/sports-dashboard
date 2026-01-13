@@ -35,7 +35,7 @@ def get_nhl_standings():
     """
     conn = get_connection()
     try:
-        # 1. Fetch Data (Latest available date for current season)
+        # Fetch Data (Latest available date for current season)
         query = """
         WITH LatestDate AS (
             SELECT max(date) as max_date 
@@ -72,7 +72,7 @@ def get_nhl_standings():
     if df.empty:
         return []
 
-    # 2. Feature Engineering (MUST MATCH models/train.py EXACTLY)
+    # Feature Engineering
     df['goal_diff'] = df['goals_for'] - df['goals_against']
     # Avoid division by zero
     df['win_pct'] = df.apply(lambda x: x['wins'] / x['games_played'] if x['games_played'] > 0 else 0, axis=1)
@@ -93,14 +93,14 @@ def get_nhl_standings():
     
     df['streak_numeric'] = df.apply(calculate_streak, axis=1)
 
-    # 3. Prepare Feature Matrix for Prediction
-    # The order of these columns MUST match the order in models/train.py
+    # Prepare Feature Matrix for Prediction
+    # Match order of these columns in models/train.py
     features = ['games_played', 'points', 'win_pct', 'goal_diff', 'points_win_interaction', 'l10_pct', 'streak_numeric']
     
-    # Handle NaNs just in case
+    # Handle NaNs
     df[features] = df[features].fillna(0)
 
-    # 4. Predict
+    # Predict
     model = get_model()
     if model:
         try:
@@ -119,6 +119,6 @@ def get_nhl_standings():
     else:
         df['playoff_prob'] = 0.0 # Default if model fails
 
-    # 5. Format for Frontend (Return all original cols + prediction)
+    # Format for Frontend (Return all original cols + prediction)
     result = df.to_dict(orient="records")
     return result

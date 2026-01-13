@@ -62,7 +62,7 @@ def train_and_compare():
         print("No training data found. Run 'python -m database.reset_db' then 'python -m etl.update_history'.")
         return
 
-    # --- Feature Engineering ---
+    # Feature Engineering
     df['win_pct'] = df['wins'] / df['games_played']
     df['goal_diff'] = df['goals_for'] - df['goals_against']
     df['points_win_interaction'] = df['points'] * df['win_pct']
@@ -70,7 +70,7 @@ def train_and_compare():
     # Normalize L10 Points (Max is 20 points in 10 games)
     df['l10_pct'] = df['l10_points'] / 20.0
 
-    # NEW: Calculate Numeric Streak
+    # Calculate Numeric Streak
     # W = Positive, L/OT = Negative
     def calculate_streak(row):
         code = row['streak_code']
@@ -92,7 +92,7 @@ def train_and_compare():
 
     print(f"Data Loaded: {len(df)} records.")
 
-    # --- Train/Test Split ---
+    # Train/Test Split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     print("\n--- 2. Tuning & Training Models ---")
@@ -174,7 +174,7 @@ def train_and_compare():
             best_model_name = name
 
     print("-" * 50)
-    print(f"🏆 Winner: {best_model_name} (Accuracy: {best_score:.2%})")
+    print(f"Winner: {best_model_name} (Accuracy: {best_score:.2%})")
 
     final_model = models[best_model_name]
     final_model.fit(X, y)

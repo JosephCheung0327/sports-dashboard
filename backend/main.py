@@ -5,10 +5,9 @@ import uvicorn
 
 app = FastAPI(title="Sports Dashboard API")
 
-# Configure CORS to allow requests from your frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your specific frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

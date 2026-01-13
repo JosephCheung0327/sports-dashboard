@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from config import API_URL
 from database.db_utils import get_connection
 
-# --- CONFIG ---
+# CONFIG
 HEADERS = {
     "User-Agent": "SportsDashboard/1.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
 }
@@ -33,7 +33,7 @@ def update_history():
     conn = get_connection()
     cur = conn.cursor()
     
-    # 1. Fetch Daily Standings (Weekly intervals)
+    # Fetch Daily Standings (Weekly intervals)
     print("--- Fetching Historical Standings ---")
     
     for start_year, start_date, end_date in SEASONS:
@@ -43,7 +43,6 @@ def update_history():
         
         while current <= end_date:
             date_str = current.strftime("%Y-%m-%d")
-            # Tiny sleep to be nice to API
             time.sleep(0.1) 
             
             try:
@@ -90,7 +89,7 @@ def update_history():
             
             current += timedelta(days=7) 
             
-    # 2. Fetch Outcomes
+    # Fetch Outcomes
     print("--- Fetching Season Outcomes ---")
     MAX_RETRIES = 3
     BACKOFF_FACTOR = 2
@@ -135,9 +134,7 @@ def update_history():
                 # Ensure team exists
                 cur.execute("SELECT team_id FROM teams WHERE abbrev = %s LIMIT 1", (abbrev,))
                 row = cur.fetchone()
-                if not row: 
-                    # Optionally print missing teams
-                    # print(f"    Missing team in DB: {abbrev}")
+                if not row:
                     continue
                 team_id = row[0]
 
@@ -169,4 +166,3 @@ def update_history():
 
 if __name__ == "__main__":
     update_history()
-    
